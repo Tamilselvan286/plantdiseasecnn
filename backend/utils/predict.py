@@ -5,31 +5,31 @@ from tensorflow.keras.preprocessing import image
 import gdown
 
 # ==============================
-# Path setup (works locally + Streamlit)
+# Path setup
 # ==============================
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model_dir = os.path.join(backend_dir, "model")
 os.makedirs(model_dir, exist_ok=True)
 
-model_path = os.path.join(model_dir, "plant_disease_model.keras")
+model_path = os.path.join(model_dir, "plant_disease_model.h5")
 
 # ==============================
-# Google Drive model link
+# Google Drive link (.h5)
 # ==============================
-url = "https://drive.google.com/uc?id=13QDnfEFPsSkfNQaNt7hU_4GM1eg2oeol"
+url = "https://drive.google.com/uc?id=1rSNZQOZHW4aN1Hf6FJmbhMFBQ3967xZR"
 
 # ==============================
 # Download model if not exists
 # ==============================
 if not os.path.exists(model_path):
-    print("📥 Downloading model from Google Drive...")
+    print("📥 Downloading model...")
     try:
         gdown.download(url, model_path, quiet=False)
     except Exception as e:
         print("❌ Download failed:", e)
 
 # ==============================
-# Load model safely
+# Load model
 # ==============================
 model = None
 try:
@@ -38,7 +38,7 @@ try:
         model = tf.keras.models.load_model(model_path, compile=False)
         print("✅ Model loaded successfully")
     else:
-        print("❌ Model file not found!")
+        print("❌ Model file not found")
 except Exception as e:
     print("❌ Error loading model:", e)
 
