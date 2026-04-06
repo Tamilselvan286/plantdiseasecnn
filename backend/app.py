@@ -56,6 +56,10 @@ def predict():
     if not data:
         return jsonify({"error": f"No treatment found for a disease matching '{disease_str}' on '{crop_str}' in the database."})
 
+    # Convert ObjectId to string for JSON serialization
+    if '_id' in data:
+        data['_id'] = str(data['_id'])
+
     # 🔥 Scrape chemical images
     from utils.scraper import fetch_image, fetch_summary
     if "management" in data and "chemical_control" in data["management"]:

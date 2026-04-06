@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
+import gdown
 from tensorflow.keras.preprocessing import image
 
 # ==============================
@@ -10,19 +11,31 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "plant_disease_model.h5")
 
 # ==============================
+# Model config (Google Drive)
+# ==============================
+GD_MODEL_URL = "https://drive.google.com/uc?id=1c6yurv94OCUb4CBVaIaDzcRsTBjKSE5O"
+
+# ==============================
 # Load model
 # ==============================
 model = None
 
 try:
+    if not os.path.exists(MODEL_PATH):
+        print(f"📥 Model not found at {MODEL_PATH}. Downloading from Google Drive...")
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        gdown.download(GD_MODEL_URL, MODEL_PATH, quiet=False)
+        print("✅ Model downloaded successfully")
+
     if os.path.exists(MODEL_PATH):
-        print("📦 Loading model...")
+        print(f"📦 Loading model from: {MODEL_PATH}")
+        # Using compile=False to avoid issues with custom loss functions/metrics during loading
         model = tf.keras.models.load_model(MODEL_PATH, compile=False)
         print("✅ Model loaded successfully")
     else:
-        print(f"❌ Model file not found at {MODEL_PATH}")
+        print(f"❌ Model file not found at {MODEL_PATH} after download attempt.")
 except Exception as e:
-    print("❌ Error loading model:", e)
+    print(f"❌ Error loading model: {e}")
 
 # ==============================
 # Class labels

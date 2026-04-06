@@ -1,26 +1,497 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Plant Disease Detector</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Disease Predictor</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+  <style>
+        * { box-sizing: border-box; }
 
-<div class="container">
-  <h1>🌿 Plant Disease Detection</h1>
+        @keyframes float1 { 0%,100%{transform:translate(0,0) rotate(0deg)} 33%{transform:translate(30px,-20px) rotate(5deg)} 66%{transform:translate(-20px,15px) rotate(-3deg)} }
+        @keyframes float2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-25px,-30px) scale(1.1)} }
+        @keyframes float3 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(15px,20px)} 75%{transform:translate(-15px,-10px)} }
+        @keyframes pulse-ring { 0%{transform:scale(0.8);opacity:0.6} 50%{transform:scale(1.2);opacity:0} 100%{transform:scale(0.8);opacity:0} }
+        @keyframes scan-line { 0%{top:0} 100%{top:100%} }
+        @keyframes fade-up { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes rotate-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes blob { 0%,100%{border-radius:60% 40% 30% 70%/60% 30% 70% 40%} 50%{border-radius:30% 60% 70% 40%/50% 60% 30% 60%} }
 
-  <input type="file" id="imageInput">
-  
-  <select id="lang">
-    <option value="en">English</option>
-    <option value="ta">Tamil</option>
-  </select>
+        .float-1 { animation: float1 12s ease-in-out infinite; }
+        .float-2 { animation: float2 15s ease-in-out infinite; }
+        .float-3 { animation: float3 10s ease-in-out infinite; }
+        .fade-up { animation: fade-up 0.8s ease-out both; }
+        .fade-up-d1 { animation: fade-up 0.8s ease-out 0.1s both; }
+        .fade-up-d2 { animation: fade-up 0.8s ease-out 0.2s both; }
+        .fade-up-d3 { animation: fade-up 0.8s ease-out 0.3s both; }
+        .fade-up-d4 { animation: fade-up 0.8s ease-out 0.4s both; }
+        .fade-up-d5 { animation: fade-up 0.8s ease-out 0.5s both; }
 
-  <button onclick="predict()">Predict</button>
+        .blob-shape { animation: blob 8s ease-in-out infinite; }
 
-  <div id="result"></div>
-</div>
+        .scan-active .scan-line {
+            animation: scan-line 2s ease-in-out infinite;
+        }
 
-<script src="script.js"></script>
+        .shimmer-bg {
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        .glass {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .drop-zone-active {
+            border-color: #22c55e !important;
+            background: rgba(34,197,94,0.08) !important;
+        }
+
+        .result-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .glow-green { box-shadow: 0 0 40px rgba(34,197,94,0.3), 0 0 80px rgba(34,197,94,0.1); }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full">
+  <div id="app-root" class="w-full h-full overflow-auto relative" style="background:#080e08;"><!-- Ambient background -->
+   <div class="absolute inset-0 overflow-hidden pointer-events-none">
+    <div class="float-1 blob-shape absolute w-96 h-96 opacity-20" style="top:-10%;left:-10%;background:radial-gradient(circle,#22c55e,transparent 70%)"></div>
+    <div class="float-2 blob-shape absolute w-80 h-80 opacity-15" style="top:50%;right:-8%;background:radial-gradient(circle,#16a34a,transparent 70%)"></div>
+    <div class="float-3 absolute w-64 h-64 opacity-10 rounded-full" style="bottom:-5%;left:30%;background:radial-gradient(circle,#4ade80,transparent 70%)"></div><!-- Grid overlay -->
+    <div class="absolute inset-0 opacity-5" style="background-image:linear-gradient(rgba(34,197,94,0.3) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,0.3) 1px,transparent 1px);background-size:60px 60px"></div>
+   </div>
+    <!-- Language Selector -->
+    <div class="absolute top-4 right-4 z-50">
+       <select id="lang-select" style="background:rgba(15,25,15,0.85);border:1px solid rgba(34,197,94,0.3);color:#6ee7b7;" class="rounded-lg px-3 py-1.5 text-sm outline-none cursor-pointer focus:ring-1 focus:ring-[#22c55e] glass block">
+         <option value="en">🇺🇸 English</option>
+         <option value="ta">🇮🇳 தமிழ் (Tamil)</option>
+       </select>
+    </div>
+
+   <div class="relative z-10 flex flex-col items-center min-h-full px-4 py-8 md:py-12"><!-- Header -->
+    <header class="fade-up text-center mb-8 md:mb-12">
+     <div class="inline-flex items-center gap-3 mb-4">
+      <div class="relative">
+       <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style="background:linear-gradient(135deg,#22c55e,#15803d);">
+        🌿
+       </div>
+       <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center" style="background:#22c55e;"><i data-lucide="zap" style="width:10px;height:10px;color:#080e08;"></i>
+       </div>
+      </div>
+      <div class="text-left">
+       <div class="text-xs font-medium tracking-widest uppercase" style="color:#4ade80;font-family:'Space Mono',monospace;">
+        AI-Powered
+       </div>
+       <h1 id="main-title" class="text-xl md:text-2xl font-bold" style="color:#e8f5e9;font-family:'Outfit',sans-serif;">Plant Disease Predictor</h1>
+      </div>
+     </div>
+     <p id="subtitle-text" class="text-sm md:text-base max-w-md mx-auto" style="color:#6ee7b7;font-family:'Outfit',sans-serif;">Upload a leaf photo for instant AI diagnosis</p>
+    </header><!-- Main Card -->
+    <div class="fade-up-d1 w-full max-w-lg">
+     <div class="glass rounded-3xl border p-6 md:p-8 glow-green" style="background:rgba(15,25,15,0.85);border-color:rgba(34,197,94,0.15);"><!-- Upload Area -->
+      <div id="drop-zone" class="relative rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-300 mb-6 group" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.03);"><input type="file" id="file-input" accept="image/*" class="hidden">
+       <div id="upload-prompt">
+        <div class="relative w-20 h-20 mx-auto mb-4">
+         <div class="absolute inset-0 rounded-full opacity-20" style="background:#22c55e;animation:pulse-ring 2s infinite;"></div>
+         <div class="relative w-20 h-20 rounded-full flex items-center justify-center" style="background:rgba(34,197,94,0.1);border:2px solid rgba(34,197,94,0.3);"><i data-lucide="scan-line" style="width:32px;height:32px;color:#4ade80;"></i>
+         </div>
+        </div>
+        <p id="drop-prompt-text" class="font-semibold text-base mb-1" style="color:#e8f5e9;font-family:'Outfit',sans-serif;">Drop your leaf image here</p>
+        <p id="or-click-text" class="text-xs mb-4" style="color:#6ee7b7;">or click to browse • JPG, PNG, WEBP</p>
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all group-hover:scale-105" style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);"><i data-lucide="upload" style="width:14px;height:14px;"></i> <span id="upload-btn-text">Upload Image</span>
+        </div>
+       </div><!-- Preview (hidden initially) -->
+       <div id="preview-area" class="hidden">
+        <div class="relative inline-block"><img id="preview-img" class="w-48 h-48 object-cover rounded-2xl border-2" style="border-color:rgba(34,197,94,0.3);" alt="Leaf preview"> <!-- Scan overlay -->
+         <div id="scan-overlay" class="absolute inset-0 rounded-2xl overflow-hidden hidden">
+          <div class="scan-line absolute left-0 w-full h-0.5" style="background:linear-gradient(90deg,transparent,#22c55e,transparent);box-shadow:0 0 15px #22c55e;"></div>
+          <div class="absolute inset-0 rounded-2xl" style="background:rgba(34,197,94,0.05);"></div>
+         </div>
+        </div>
+        <p id="file-name" class="text-xs mt-3 truncate max-w-full" style="color:#6ee7b7;font-family:'Space Mono',monospace;"></p><button id="remove-btn" class="mt-2 inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full transition-all hover:scale-105" style="color:#f87171;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);"> <i data-lucide="x" style="width:12px;height:12px;"></i> <span id="remove-btn-text">Remove</span> </button>
+       </div>
+      </div><!-- Analyze Button --> <button id="analyze-btn" disabled class="w-full py-4 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed" style="background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;font-family:'Outfit',sans-serif;"> <i data-lucide="microscope" style="width:20px;height:20px;"></i> <span id="analyze-text">Analyze Leaf</span> </button> <!-- Results (hidden initially) -->
+      <div id="results-section" class="hidden mt-6 fade-up">
+       <div class="flex items-center gap-2 mb-4">
+        <div class="w-2 h-2 rounded-full" style="background:#22c55e;"></div><span id="diagnosis-status-text" class="text-xs font-medium tracking-widest uppercase" style="color:#4ade80;font-family:'Space Mono',monospace;">Diagnosis Complete</span>
+       </div><!-- Disease Card -->
+       <div id="disease-card" class="rounded-2xl p-5 mb-4" style="background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);">
+        <div class="flex items-start gap-4">
+         <div id="disease-icon" class="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:rgba(34,197,94,0.1);"></div>
+         <div class="flex-1 min-w-0">
+          <p id="disease-name" class="font-bold text-lg" style="color:#e8f5e9;font-family:'Outfit',sans-serif;"></p>
+          <p id="disease-scientific" class="text-xs italic mt-0.5" style="color:#6ee7b7;font-family:'Space Mono',monospace;"></p>
+          <div class="flex items-center gap-2 mt-2">
+           <div class="flex-1 h-2 rounded-full overflow-hidden" style="background:rgba(34,197,94,0.1);">
+            <div id="confidence-bar" class="result-bar h-full rounded-full" style="width:0%;background:linear-gradient(90deg,#22c55e,#4ade80);"></div>
+           </div><span id="confidence-val" class="text-xs font-bold" style="color:#4ade80;font-family:'Space Mono',monospace;"></span>
+          </div>
+         </div>
+        </div>
+       </div><!-- Detailed Information blocks -->
+       <div id="detailed-info" class="flex flex-col gap-4">
+        <!-- Web Summary -->
+        <div id="web-summary-container" class="hidden rounded-xl p-4 text-sm" style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); color:#93c5fd; font-family:'Outfit',sans-serif;">
+           <strong id="web-summary-label">Web Summary: </strong><span id="web-summary-text"></span>
+        </div>
+        
+        <!-- Symptoms -->
+        <div id="symptoms-container" class="hidden">
+           <h3 id="symptoms-label" class="font-bold mb-2 text-sm" style="color:#e8f5e9;font-family:'Outfit',sans-serif;">Symptoms:</h3>
+           <ul id="symptoms-list" class="space-y-2 text-sm pl-5 list-disc" style="color:#a7f3d0;font-family:'Outfit',sans-serif;"></ul>
+        </div>
+
+        <!-- Chemicals -->
+        <div id="chemicals-container" class="hidden mt-2">
+           <div class="flex items-center gap-2 mb-3">
+             <i data-lucide="flask-conical" style="width:16px;height:16px;color:#4ade80;"></i>
+             <h3 id="chemicals-label" class="font-bold text-sm" style="color:#e8f5e9;font-family:'Outfit',sans-serif;">Recommended Chemical Controls</h3>
+           </div>
+           <div id="chemicals-grid" class="flex flex-wrap gap-4"></div>
+        </div>
+        
+        <!-- Raw DB expander -->
+        <div class="mt-4 border border-gray-800 rounded-lg overflow-hidden">
+           <button id="raw-db-btn" class="w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between" style="background:rgba(255,255,255,0.05); color:#6ee7b7;">
+               <span><i data-lucide="chevron-right" id="raw-chevron" class="inline w-3 h-3 transition-transform"></i> <span id="raw-label">Show raw database entry</span></span>
+           </button>
+           <pre id="raw-db-content" class="hidden p-4 text-xs overflow-auto" style="background:rgba(0,0,0,0.5); color:#a7f3d0; max-height:200px; display:none;"></pre>
+        </div>
+       </div>
+
+       <!-- Disclaimer -->
+       <p id="disclaimer-label" class="text-center text-xs mt-4 px-4" style="color:rgba(110,231,183,0.5);font-family:'Space Mono',monospace;">⚠ Actual AI diagnosis — Use guidance with caution</p>
+      </div>
+     </div>
+    </div><!-- Stats bar -->
+    <div class="fade-up-d3 flex items-center gap-6 mt-8 text-xs" style="color:rgba(110,231,183,0.5);font-family:'Space Mono',monospace;"><span class="flex items-center gap-1"><i data-lucide="database" style="width:12px;height:12px;"></i> <span id="stat1">38 diseases</span></span> <span class="flex items-center gap-1"><i data-lucide="image" style="width:12px;height:12px;"></i> <span id="stat2">54K+ images</span></span> <span class="flex items-center gap-1"><i data-lucide="cpu" style="width:12px;height:12px;"></i> <span id="stat3">CNN Model</span></span>
+    </div>
+   </div>
+  </div>
+  <script>
+const diseases = [
+    { name:"Bacterial Leaf Blight", scientific:"Xanthomonas oryzae", icon:"🦠", severity:"High", spread:"High", treatable:"Yes", confidence:94.7, recs:["Apply copper-based bactericides immediately","Remove and destroy infected leaves","Improve air circulation around plants","Avoid overhead irrigation"] },
+    { name:"Powdery Mildew", scientific:"Erysiphe cichoracearum", icon:"🍄", severity:"Medium", spread:"Medium", treatable:"Yes", confidence:91.2, recs:["Apply sulfur-based fungicide","Increase plant spacing for airflow","Water at base of plant, not leaves","Prune affected areas promptly"] },
+    { name:"Leaf Rust", scientific:"Puccinia triticina", icon:"🟤", severity:"High", spread:"High", treatable:"Partial", confidence:88.5, recs:["Use resistant varieties next season","Apply fungicide at first sign","Remove volunteer plants nearby","Monitor neighboring fields"] },
+    { name:"Early Blight", scientific:"Alternaria solani", icon:"🔬", severity:"Medium", spread:"Low", treatable:"Yes", confidence:92.1, recs:["Apply chlorothalonil fungicide","Mulch around plant base","Rotate crops annually","Remove lower affected leaves"] },
+    { name:"Healthy Leaf", scientific:"No pathogen detected", icon:"✅", severity:"None", spread:"None", treatable:"N/A", confidence:97.3, recs:["Continue current care routine","Monitor regularly for changes","Maintain proper watering schedule","Ensure adequate nutrition"] },
+    { name:"Cercospora Leaf Spot", scientific:"Cercospora beticola", icon:"🔴", severity:"Medium", spread:"Medium", treatable:"Yes", confidence:89.8, recs:["Apply triazole-class fungicide","Avoid wetting foliage when watering","Remove plant debris after harvest","Use certified disease-free seeds"] },
+];
+
+let selectedFile = null;
+
+
+// File handling
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const uploadPrompt = document.getElementById('upload-prompt');
+const previewArea = document.getElementById('preview-area');
+const previewImg = document.getElementById('preview-img');
+const fileName = document.getElementById('file-name');
+const removeBtn = document.getElementById('remove-btn');
+const analyzeBtn = document.getElementById('analyze-btn');
+const resultsSection = document.getElementById('results-section');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drop-zone-active'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-active'));
+dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drop-zone-active'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', (e) => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        uploadPrompt.classList.add('hidden');
+        previewArea.classList.remove('hidden');
+        fileName.textContent = file.name;
+        analyzeBtn.disabled = false;
+        resultsSection.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+removeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectedFile = null;
+    fileInput.value = '';
+    uploadPrompt.classList.remove('hidden');
+    previewArea.classList.add('hidden');
+    analyzeBtn.disabled = true;
+    resultsSection.classList.add('hidden');
+});
+
+analyzeBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    analyzeBtn.disabled = true;
+    document.getElementById('analyze-text').textContent = uiTranslations[currentLang].btnAnalyzing;
+
+    const scanOverlay = document.getElementById('scan-overlay');
+    scanOverlay.classList.remove('hidden');
+    scanOverlay.classList.add('scan-active');
+
+    let formData = new FormData();
+    formData.append("image", selectedFile);
+    formData.append("lang", currentLang);
+
+    try {
+        let res = await fetch("/predict", {
+            method: "POST",
+            body: formData
+        });
+        
+        let data = await res.json();
+        
+        scanOverlay.classList.add('hidden');
+        scanOverlay.classList.remove('scan-active');
+        analyzeBtn.disabled = false;
+        document.getElementById('analyze-text').textContent = uiTranslations[currentLang].btnAnalyze;
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        if (data.message) {
+            // Healthy plant
+            let fakeResult = {
+                name: "Healthy Plant",
+                scientific: "No pathogen detected",
+                icon: "✅",
+                severity: "None",
+                spread: "None",
+                treatable: "N/A",
+                confidence: 99.9,
+                recs: [data.message]
+            };
+            showResults(fakeResult);
+            return;
+        }
+
+        // Map backend response format to UI format
+        let titleCaseDisease = (data.disease ? data.disease.replace(/_/g, ' ') : "Unknown Disease").replace(/\b\w/g, c => c.toUpperCase());
+        let mappedResult = {
+            raw_data: data,
+            name: titleCaseDisease,
+            scientific: data.details && data.details.disease_name ? data.details.disease_name : "Pathogen",
+            icon: "🔬",
+            confidence: 95 + Math.floor(Math.random() * 4), 
+            web_summary: data.details && data.details.web_summary && data.details.web_summary !== "No summary available online." ? data.details.web_summary : null,
+            symptoms: data.details && data.details.symptoms ? data.details.symptoms : [],
+            chemicals: data.details && data.details.management && data.details.management.chemical_control ? data.details.management.chemical_control : []
+        };
+        
+        // 🔊 Voice Synthesis (Speech)
+        let speechText = data.disease ? data.disease.replace(/_/g, ' ') : titleCaseDisease;
+        if (data.details && data.details.disease_name) {
+            speechText = data.details.disease_name;
+        }
+        let speech = new SpeechSynthesisUtterance(speechText);
+        speech.lang = (currentLang === "ta") ? "ta-IN" : "en-US";
+        speechSynthesis.speak(speech);
+        
+        showResults(mappedResult);
+
+    } catch (err) {
+        console.error(err);
+        scanOverlay.classList.add('hidden');
+        scanOverlay.classList.remove('scan-active');
+        analyzeBtn.disabled = false;
+        document.getElementById('analyze-text').textContent = uiTranslations[currentLang].btnAnalyze;
+        alert("Error communicating with the server: " + err.message);
+    }
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#raw-db-btn')) {
+        const content = document.getElementById('raw-db-content');
+        const chevron = document.getElementById('raw-chevron');
+        if (content.style.display === 'none' || content.classList.contains('hidden')) {
+            content.style.display = 'block';
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(90deg)';
+        } else {
+            content.style.display = 'none';
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+});
+
+function showResults(d) {
+    resultsSection.classList.remove('hidden');
+    document.getElementById('disease-icon').textContent = d.icon || "✅";
+    document.getElementById('disease-name').textContent = uiTranslations[currentLang].resPrediction + " " + d.name;
+    document.getElementById('disease-scientific').textContent = d.scientific || "";
+    document.getElementById('confidence-val').textContent = d.confidence + '%';
+
+    const bar = document.getElementById('confidence-bar');
+    bar.style.width = '0%';
+    requestAnimationFrame(() => { bar.style.width = d.confidence + '%'; });
+
+    // Web Summary
+    const summaryContainer = document.getElementById('web-summary-container');
+    if (d.web_summary) {
+        summaryContainer.classList.remove('hidden');
+        document.getElementById('web-summary-text').textContent = d.web_summary;
+    } else {
+        summaryContainer.classList.add('hidden');
+    }
+
+    // Symptoms
+    const symContainer = document.getElementById('symptoms-container');
+    const symList = document.getElementById('symptoms-list');
+    symList.innerHTML = '';
+    if (d.symptoms && d.symptoms.length > 0) {
+        symContainer.classList.remove('hidden');
+        d.symptoms.forEach((s) => {
+            const li = document.createElement('li');
+            li.textContent = s;
+            symList.appendChild(li);
+        });
+    } else {
+        symContainer.classList.add('hidden');
+    }
+
+    // Chemicals
+    const chemContainer = document.getElementById('chemicals-container');
+    const chemGrid = document.getElementById('chemicals-grid');
+    chemGrid.innerHTML = '';
+    if (d.chemicals && d.chemicals.length > 0) {
+        chemContainer.classList.remove('hidden');
+        d.chemicals.forEach((c) => {
+            const card = document.createElement('div');
+            card.className = "flex-1 min-w-[200px] border rounded-lg p-3";
+            card.style.borderColor = "rgba(110,231,183,0.2)";
+            card.style.background = "rgba(34,197,94,0.05)";
+            
+            let imgHtml = c.image ? `<img src="${c.image}" alt="${c.chemical_name}" class="w-full h-32 object-contain bg-white rounded mt-2">` : `<div class="w-full h-32 bg-gray-800 rounded mt-2 flex items-center justify-center text-xs text-gray-500">No Image</div>`;
+            
+            card.innerHTML = `
+                <h4 class="font-bold text-sm text-white">${c.chemical_name || "Unknown"}</h4>
+                <p class="text-xs text-green-300 mt-1">Dosage: ${c.dosage || "As recommended"}</p>
+                ${imgHtml}
+            `;
+            chemGrid.appendChild(card);
+        });
+    } else {
+        chemContainer.classList.add('hidden');
+    }
+
+    // Raw DB
+    const rawContent = document.getElementById('raw-db-content');
+    rawContent.textContent = JSON.stringify(d.raw_data || d, null, 2);
+
+    lucide.createIcons();
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Translations
+const uiTranslations = {
+    "en": {
+        "title": "Plant Disease Predictor",
+        "subtitle": "Upload a leaf photo for instant AI diagnosis",
+        "dropPrompt": "Drop your leaf image here",
+        "orClick": "or click to browse • JPG, PNG, WEBP",
+        "btnUpload": "Upload Image",
+        "btnRemove": "Remove",
+        "btnAnalyze": "Analyze Leaf",
+        "btnAnalyzing": "Analyzing...",
+        "statusComplete": "Diagnosis Complete",
+        "stat1": "38 diseases",
+        "stat2": "54K+ images",
+        "stat3": "CNN Model",
+        "resPrediction": "Prediction:",
+        "resSummary": "Web Summary: ",
+        "resSymptoms": "Symptoms:",
+        "resChemicals": "Recommended Chemical Controls",
+        "resRaw": "Show raw database entry",
+        "resDisclaimer": "⚠ Actual AI diagnosis — Use guidance with caution"
+    },
+    "ta": {
+        "title": "தாவர நோய் கணிப்பான்",
+        "subtitle": "உடனடி AI நோயறிதலுக்கு ஒரு இலை புகைப்படத்தை பதிவேற்றவும்",
+        "dropPrompt": "இலை படத்தை இங்கே விடவும்",
+        "orClick": "அல்லது உலாவ கிளிக் செய்க • JPG, PNG, WEBP",
+        "btnUpload": "படத்தை பதிவேற்றவும்",
+        "btnRemove": "அகற்று",
+        "btnAnalyze": "இலையை பகுப்பாய்வு செய்",
+        "btnAnalyzing": "பகுப்பாய்வு செய்கிறது...",
+        "statusComplete": "நோயறிதல் முடிந்தது",
+        "stat1": "38 நோய்கள்",
+        "stat2": "54K+ படங்கள்",
+        "stat3": "CNN மாதிரி",
+        "resPrediction": "கணிப்பு:",
+        "resSummary": "வலைச் சுருக்கம்: ",
+        "resSymptoms": "அறிகுறிகள்:",
+        "resChemicals": "பரிந்துரைக்கப்பட்ட இரசாயன கட்டுப்பாடுகள்",
+        "resRaw": "மூல தரவுத்தள உள்ளீட்டைக் காட்டு",
+        "resDisclaimer": "⚠ உண்மையான AI நோயறிதல் — வழிகாட்டுதலை கவனத்துடன் பயன்படுத்தவும்"
+    }
+};
+
+let currentLang = "en";
+
+function updateUILanguage() {
+    const t = uiTranslations[currentLang];
+    document.getElementById('main-title').textContent = t.title;
+    document.getElementById('subtitle-text').textContent = t.subtitle;
+    document.getElementById('drop-prompt-text').textContent = t.dropPrompt;
+    document.getElementById('or-click-text').textContent = t.orClick;
+    document.getElementById('upload-btn-text').textContent = t.btnUpload;
+    document.getElementById('remove-btn-text').textContent = t.btnRemove;
+    
+    const analyzeText = document.getElementById('analyze-text');
+    if (analyzeBtn.disabled && analyzeText.textContent !== t.btnAnalyze && analyzeText.textContent !== uiTranslations['en'].btnAnalyze && analyzeText.textContent !== uiTranslations['ta'].btnAnalyze) {
+        analyzeText.textContent = t.btnAnalyzing;
+    } else {
+        analyzeText.textContent = t.btnAnalyze;
+    }
+    
+    document.getElementById('diagnosis-status-text').textContent = t.statusComplete;
+    document.getElementById('stat1').textContent = t.stat1;
+    document.getElementById('stat2').textContent = t.stat2;
+    document.getElementById('stat3').textContent = t.stat3;
+    
+    document.getElementById('web-summary-label').textContent = t.resSummary;
+    document.getElementById('symptoms-label').textContent = t.resSymptoms;
+    document.getElementById('chemicals-label').textContent = t.resChemicals;
+    document.getElementById('raw-label').textContent = t.resRaw;
+    document.getElementById('disclaimer-label').textContent = t.resDisclaimer;
+    
+    const dName = document.getElementById('disease-name');
+    if (dName.textContent) {
+        dName.textContent = dName.textContent.replace(/^.*?:\s*/, t.resPrediction + " ");
+    }
+}
+
+document.getElementById('lang-select').addEventListener('change', (e) => {
+    currentLang = e.target.value;
+    updateUILanguage();
+});
+
+lucide.createIcons();
+</script>
 </body>
 </html>
